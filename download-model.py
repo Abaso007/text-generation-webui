@@ -148,7 +148,7 @@ def get_download_links_from_huggingface(model, branch, text_only=False):
 
 def get_output_folder(model, branch, is_lora, base_folder=None):
     if base_folder is None:
-        base_folder = 'models' if not is_lora else 'loras'
+        base_folder = 'loras' if is_lora else 'models'
 
     output_folder = f"{'_'.join(model.split('/')[-2:])}"
     if branch != 'main':
@@ -194,10 +194,12 @@ def download_model_files(model, branch, links, sha256, output_folder, start_from
     with open(output_folder / 'huggingface-metadata.txt', 'w') as f:
         f.write(f'url: https://huggingface.co/{model}\n')
         f.write(f'branch: {branch}\n')
-        f.write(f'download date: {str(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))}\n')
-        sha256_str = ''
-        for i in range(len(sha256)):
-            sha256_str += f'    {sha256[i][1]} {sha256[i][0]}\n'
+        f.write(
+            f'download date: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n'
+        )
+        sha256_str = ''.join(
+            f'    {sha256[i][1]} {sha256[i][0]}\n' for i in range(len(sha256))
+        )
         if sha256_str != '':
             f.write(f'sha256sum:\n{sha256_str}')
 

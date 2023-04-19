@@ -35,9 +35,8 @@ def generate_reply_wrapper(string):
         'skip_special_tokens': True,
     }
     params = json.loads(string)
-    generate_params.update(params[1])
-    for i in generate_reply(params[0], generate_params):
-        yield i
+    generate_params |= params[1]
+    yield from generate_reply(params[0], generate_params)
 
 
 def create_apis():

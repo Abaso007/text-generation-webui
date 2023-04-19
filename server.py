@@ -51,20 +51,29 @@ def get_available_models():
 
 
 def get_available_presets():
-    return sorted(set((k.stem for k in Path('presets').glob('*.txt'))), key=str.lower)
+    return sorted({k.stem for k in Path('presets').glob('*.txt')}, key=str.lower)
 
 
 def get_available_prompts():
     prompts = []
-    prompts += sorted(set((k.stem for k in Path('prompts').glob('[0-9]*.txt'))), key=str.lower, reverse=True)
-    prompts += sorted(set((k.stem for k in Path('prompts').glob('*.txt'))), key=str.lower)
+    prompts += sorted(
+        {k.stem for k in Path('prompts').glob('[0-9]*.txt')},
+        key=str.lower,
+        reverse=True,
+    )
+    prompts += sorted(
+        {k.stem for k in Path('prompts').glob('*.txt')}, key=str.lower
+    )
     prompts += ['None']
     return prompts
 
 
 def get_available_characters():
     paths = (x for x in Path('characters').iterdir() if x.suffix in ('.json', '.yaml', '.yml'))
-    return ['None'] + sorted(set((k.stem for k in paths if k.stem != "instruction-following")), key=str.lower)
+    return ['None'] + sorted(
+        {k.stem for k in paths if k.stem != "instruction-following"},
+        key=str.lower,
+    )
 
 
 def get_available_instruction_templates():
@@ -72,7 +81,7 @@ def get_available_instruction_templates():
     paths = []
     if os.path.exists(path):
         paths = (x for x in Path(path).iterdir() if x.suffix in ('.json', '.yaml', '.yml'))
-    return ['None'] + sorted(set((k.stem for k in paths)), key=str.lower)
+    return ['None'] + sorted({k.stem for k in paths}, key=str.lower)
 
 
 def get_available_extensions():
@@ -80,7 +89,9 @@ def get_available_extensions():
 
 
 def get_available_softprompts():
-    return ['None'] + sorted(set((k.stem for k in Path('softprompts').glob('*.zip'))), key=str.lower)
+    return ['None'] + sorted(
+        {k.stem for k in Path('softprompts').glob('*.zip')}, key=str.lower
+    )
 
 
 def get_available_loras():
@@ -160,12 +171,11 @@ def save_prompt(text):
 def load_prompt(fname):
     if fname in ['None', '']:
         return ''
-    else:
-        with open(Path(f'prompts/{fname}.txt'), 'r', encoding='utf-8') as f:
-            text = f.read()
-            if text[-1] == '\n':
-                text = text[:-1]
-            return text
+    with open(Path(f'prompts/{fname}.txt'), 'r', encoding='utf-8') as f:
+        text = f.read()
+        if text[-1] == '\n':
+            text = text[:-1]
+        return text
 
 
 def download_model_wrapper(repo_id):
@@ -227,12 +237,7 @@ def update_model_parameters(state, initial=False):
 
         setattr(shared.args, element, value)
 
-    found_positive = False
-    for i in gpu_memories:
-        if i > 0:
-            found_positive = True
-            break
-
+    found_positive = any(i > 0 for i in gpu_memories)
     if not (initial and vars(shared.args)['gpu_memory'] != vars(shared.args_defaults)['gpu_memory']):
         if found_positive:
             shared.args.gpu_memory = [f"{i}MiB" for i in gpu_memories]
@@ -267,11 +272,7 @@ def save_model_settings(model, state):
         return
 
     with Path(f'{shared.args.model_dir}/config-user.yaml') as p:
-        if p.exists():
-            user_config = yaml.safe_load(open(p, 'r').read())
-        else:
-            user_config = {}
-
+        user_config = yaml.safe_load(open(p, 'r').read()) if p.exists() else {}
         if model not in user_config:
             user_config[model] = {}
 
@@ -285,11 +286,12 @@ def save_model_settings(model, state):
 
 
 def create_model_menus():
-    # Finding the default values for the GPU and CPU memories
-    total_mem = []
-    for i in range(torch.cuda.device_count()):
-        total_mem.append(math.floor(torch.cuda.get_device_properties(i).total_memory / (1024 * 1024)))
-
+    total_mem = [
+        math.floor(
+            torch.cuda.get_device_properties(i).total_memory / (1024 * 1024)
+        )
+        for i in range(torch.cuda.device_count())
+    ]
     default_gpu_mem = []
     if shared.args.gpu_memory is not None and len(shared.args.gpu_memory) > 0:
         for i in shared.args.gpu_memory:
@@ -393,12 +395,20 @@ def create_model_menus():
 
 def create_settings_menus(default_preset):
 
-    generate_params = load_preset_values(default_preset if not shared.args.flexgen else 'Naive', {}, return_dict=True)
+    generate_params = load_preset_values(
+        'Naive' if shared.args.flexgen else default_preset,
+        {},
+        return_dict=True,
+    )
 
     with gr.Row():
         with gr.Column():
             with gr.Row():
-                shared.gradio['preset_menu'] = gr.Dropdown(choices=get_available_presets(), value=default_preset if not shared.args.flexgen else 'Naive', label='Generation parameters preset')
+                shared.gradio['preset_menu'] = gr.Dropdown(
+                    choices=get_available_presets(),
+                    value='Naive' if shared.args.flexgen else default_preset,
+                    label='Generation parameters preset',
+                )
                 ui.create_refresh_button(shared.gradio['preset_menu'], lambda: None, lambda: {'choices': get_available_presets()}, 'refresh-button')
         with gr.Column():
             shared.gradio['seed'] = gr.Number(value=shared.settings['seed'], label='Seed (-1 for random)')

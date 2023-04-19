@@ -38,7 +38,14 @@ MODEL_CLASSES = {
 
 
 def get_datasets(path: str, ext: str):
-    return ['None'] + sorted(set([k.stem for k in Path(path).glob(f'*.{ext}') if k.stem != 'put-trainer-datasets-here']), key=str.lower)
+    return ['None'] + sorted(
+        {
+            k.stem
+            for k in Path(path).glob(f'*.{ext}')
+            if k.stem != 'put-trainer-datasets-here'
+        },
+        key=str.lower,
+    )
 
 
 def get_available_loras():
@@ -129,10 +136,7 @@ def clean_path(base_path: str, path: str):
     # TODO: Probably could do with a security audit to guarantee there's no ways this can be bypassed to target an unwanted path.
     # Or swap it to a strict whitelist of [a-zA-Z_0-9]
     path = path.replace('\\', '/').replace('..', '_')
-    if base_path is None:
-        return path
-
-    return f'{Path(base_path).absolute()}/{path}'
+    return path if base_path is None else f'{Path(base_path).absolute()}/{path}'
 
 
 def do_train(lora_name: str, always_override: bool, save_steps: int, micro_batch_size: int, batch_size: int, epochs: int, learning_rate: str, lora_rank: int, lora_alpha: int, lora_dropout: float,
@@ -205,11 +209,11 @@ def do_train(lora_name: str, always_override: bool, save_steps: int, micro_batch
         eval_data = None
 
     else:
-        if dataset in ['None', '']:
+        if dataset in {'None', ''}:
             yield "**Missing dataset choice input, cannot continue.**"
             return
 
-        if format in ['None', '']:
+        if format in {'None', ''}:
             yield "**Missing format choice input, cannot continue.**"
             return
 
@@ -218,7 +222,11 @@ def do_train(lora_name: str, always_override: bool, save_steps: int, micro_batch
 
         def generate_prompt(data_point: dict[str, str]):
             for options, data in format_data.items():
-                if set(options.split(',')) == set(x[0] for x in data_point.items() if (x[1] is not None and len(x[1].strip()) > 0)):
+                if set(options.split(',')) == {
+                    x[0]
+                    for x in data_point.items()
+                    if (x[1] is not None and len(x[1].strip()) > 0)
+                }:
                     for key, val in data_point.items():
                         if val is not None:
                             data = data.replace(f'%{key}%', val)
@@ -301,20 +309,23 @@ def do_train(lora_name: str, always_override: bool, save_steps: int, micro_batch
             warmup_steps=100,
             num_train_epochs=epochs,
             learning_rate=actual_lr,
-            fp16=False if shared.args.cpu else True,
+            fp16=not shared.args.cpu,
             logging_steps=5,
             evaluation_strategy="steps" if eval_data is not None else "no",
-            eval_steps=math.ceil(eval_steps / gradient_accumulation_steps) if eval_data is not None else None,
+            eval_steps=math.ceil(eval_steps / gradient_accumulation_steps)
+            if eval_data is not None
+            else None,
             save_strategy="steps",
             save_steps=math.ceil(save_steps / gradient_accumulation_steps),
             output_dir=lora_file_path,
-            load_best_model_at_end=True if eval_data is not None else False,
-            # TODO: Enable multi-device support
+            load_best_model_at_end=eval_data is not None,
             ddp_find_unused_parameters=None,
-            no_cuda=shared.args.cpu
+            no_cuda=shared.args.cpu,
         ),
-        data_collator=transformers.DataCollatorForLanguageModeling(shared.tokenizer, mlm=False),
-        callbacks=list([Callbacks()])
+        data_collator=transformers.DataCollatorForLanguageModeling(
+            shared.tokenizer, mlm=False
+        ),
+        callbacks=[Callbacks()],
     )
 
     lora_model.config.use_cache = False
@@ -359,11 +370,7 @@ def do_train(lora_name: str, always_override: bool, save_steps: int, micro_batch
                 total_time_estimate = 999
             else:
                 its = tracked.current_steps / time_elapsed
-                if its > 1:
-                    timer_info = f"`{its:.2f}` it/s"
-                else:
-                    timer_info = f"`{1.0/its:.2f}` s/it"
-
+                timer_info = f"`{its:.2f}` it/s" if its > 1 else f"`{1.0 / its:.2f}` s/it"
                 total_time_estimate = (1.0 / its) * (tracked.max_steps)
 
             yield f"Running... **{tracked.current_steps}** / **{tracked.max_steps}** ... {timer_info}, {format_time(time_elapsed)} / {format_time(total_time_estimate)} ... {format_time(total_time_estimate - time_elapsed)} remaining"

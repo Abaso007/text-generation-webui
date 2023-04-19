@@ -62,16 +62,12 @@ def generate_basic_html(string):
 def process_post(post, c):
     t = post.split('\n')
     number = t[0].split(' ')[1]
-    if len(t) > 1:
-        src = '\n'.join(t[1:])
-    else:
-        src = ''
+    src = '\n'.join(t[1:]) if len(t) > 1 else ''
     src = re.sub('>', '&gt;', src)
     src = re.sub('(&gt;&gt;[0-9]*)', '<span class="quote">\\1</span>', src)
     src = re.sub('\n', '<br>\n', src)
     src = f'<blockquote class="message">{src}\n'
-    src = f'<span class="name">Anonymous </span> <span class="number">No.{number}</span>\n{src}'
-    return src
+    return f'<span class="name">Anonymous </span> <span class="number">No.{number}</span>\n{src}'
 
 
 def generate_4chan_html(f):
@@ -139,7 +135,7 @@ def get_image_cache(path):
 
 def generate_instruct_html(history):
     output = f'<style>{instruct_css}</style><div class="chat" id="chat">'
-    for i, _row in enumerate(history[::-1]):
+    for _row in history[::-1]:
         row = [convert_to_markdown(entry) for entry in _row]
 
         output += f"""
@@ -152,10 +148,8 @@ def generate_instruct_html(history):
               </div>
             """
 
-        if len(row[0]) == 0:  # don't display empty user messages
-            continue
-
-        output += f"""
+        if len(row[0]) != 0:
+            output += f"""
               <div class="user-message">
                 <div class="text">
                   <div class="message-body">
@@ -177,7 +171,7 @@ def generate_cai_chat_html(history, name1, name2, reset_cache=False):
     img_bot = f'<img src="file/cache/pfp_character.png?{name2}">' if Path("cache/pfp_character.png").exists() else ''
     img_me = f'<img src="file/cache/pfp_me.png?{time.time() if reset_cache else ""}">' if Path("cache/pfp_me.png").exists() else ''
 
-    for i, _row in enumerate(history[::-1]):
+    for _row in history[::-1]:
         row = [convert_to_markdown(entry) for entry in _row]
 
         output += f"""
@@ -196,10 +190,8 @@ def generate_cai_chat_html(history, name1, name2, reset_cache=False):
               </div>
             """
 
-        if len(row[0]) == 0:  # don't display empty user messages
-            continue
-
-        output += f"""
+        if len(row[0]) != 0:
+            output += f"""
               <div class="message">
                 <div class="circle-you">
                   {img_me}
@@ -222,7 +214,7 @@ def generate_cai_chat_html(history, name1, name2, reset_cache=False):
 def generate_chat_html(history, name1, name2, reset_cache=False):
     output = f'<style>{bubble_chat_css}</style><div class="chat" id="chat">'
 
-    for i, _row in enumerate(history[::-1]):
+    for _row in history[::-1]:
         row = [convert_to_markdown(entry) for entry in _row]
 
         output += f"""
@@ -235,10 +227,8 @@ def generate_chat_html(history, name1, name2, reset_cache=False):
               </div>
             """
 
-        if len(row[0]) == 0:  # don't display empty user messages
-            continue
-
-        output += f"""
+        if len(row[0]) != 0:
+            output += f"""
               <div class="message">
                 <div class="text-you">
                   <div class="message-body">

@@ -19,8 +19,7 @@ with open(Path(__file__).resolve().parent / '../css/chat.js', 'r') as f:
 
 def list_model_elements():
     elements = ['cpu_memory', 'auto_devices', 'disk', 'cpu', 'bf16', 'load_in_8bit', 'wbits', 'groupsize', 'model_type', 'pre_layer']
-    for i in range(torch.cuda.device_count()):
-        elements.append(f'gpu_memory_{i}')
+    elements.extend(f'gpu_memory_{i}' for i in range(torch.cuda.device_count()))
     return elements
 
 
@@ -33,10 +32,7 @@ def list_interface_input_elements(chat=False):
 
 
 def gather_interface_values(*args):
-    output = {}
-    for i, element in enumerate(shared.input_elements):
-        output[element] = args[i]
-    return output
+    return {element: args[i] for i, element in enumerate(shared.input_elements)}
 
 
 def apply_interface_values(state):

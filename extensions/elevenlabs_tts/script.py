@@ -48,13 +48,11 @@ def refresh_voices():
 
     global user, user_info
 
-    your_voices = [None]
-    if user_info is not None:
-        for voice in user.get_available_voices():
-            your_voices.append(voice.initialName)
-        return gr.Dropdown.update(choices=your_voices)
-    else:
+    if user_info is None:
         return
+    your_voices = [None]
+    your_voices.extend(voice.initialName for voice in user.get_available_voices())
+    return gr.Dropdown.update(choices=your_voices)
 
 
 def remove_surrounded_chars(string):
@@ -79,11 +77,8 @@ def output_modifier(string):
 
     global params, wav_idx, user, user_info
 
-    if not params['activate']:
+    if not params['activate'] or user_info is None:
         return string
-    elif user_info is None:
-        return string
-
     string = remove_surrounded_chars(string)
     string = string.replace('"', '')
     string = string.replace('“', '')

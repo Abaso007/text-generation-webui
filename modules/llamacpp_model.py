@@ -29,14 +29,14 @@ class LlamaCppModel:
         self.initialized = False
 
     @classmethod
-    def from_pretrained(self, path):
+    def from_pretrained(cls, path):
         params = llamacpp.InferenceParams()
         params.path_model = str(path)
         params.n_threads = shared.args.threads or multiprocessing.cpu_count() // 2
 
         _model = llamacpp.LlamaInference(params)
 
-        result = self()
+        result = cls()
         result.model = _model
         result.params = params
 

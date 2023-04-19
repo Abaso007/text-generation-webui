@@ -40,7 +40,9 @@ def ui():
     language_name = list(language_codes.keys())[list(language_codes.values()).index(params['language string'])]
 
     # Gradio elements
-    language = gr.Dropdown(value=language_name, choices=[k for k in language_codes], label='Language')
+    language = gr.Dropdown(
+        value=language_name, choices=list(language_codes), label='Language'
+    )
 
     # Event functions to update the parameters in the backend
     language.change(lambda x: params.update({"language string": language_codes[x]}), language, None)

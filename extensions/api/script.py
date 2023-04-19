@@ -37,7 +37,7 @@ class Handler(BaseHTTPRequestHandler):
 
             max_context = body.get('max_context_length', 2048)
 
-            while len(prompt_lines) >= 0 and len(encode('\n'.join(prompt_lines))) > max_context:
+            while len(encode('\n'.join(prompt_lines))) > max_context:
                 prompt_lines.pop(0)
 
             prompt = '\n'.join(prompt_lines)
@@ -71,11 +71,7 @@ class Handler(BaseHTTPRequestHandler):
 
             answer = ''
             for a in generator:
-                if isinstance(a, str):
-                    answer = a
-                else:
-                    answer = a[0]
-
+                answer = a if isinstance(a, str) else a[0]
             response = json.dumps({
                 'results': [{
                     'text': answer[len(prompt):]

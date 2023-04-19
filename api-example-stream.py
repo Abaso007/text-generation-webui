@@ -20,7 +20,7 @@ GRADIO_FN = 34
 
 def random_hash():
     letters = string.ascii_lowercase + string.digits
-    return ''.join(random.choice(letters) for i in range(9))
+    return ''.join(random.choice(letters) for _ in range(9))
 
 
 async def run(context):

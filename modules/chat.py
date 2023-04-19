@@ -19,9 +19,9 @@ from modules.text_generation import (encode, generate_reply,
 
 
 def generate_chat_prompt(user_input, state, **kwargs):
-    impersonate = kwargs['impersonate'] if 'impersonate' in kwargs else False
-    _continue = kwargs['_continue'] if '_continue' in kwargs else False
-    also_return_rows = kwargs['also_return_rows'] if 'also_return_rows' in kwargs else False
+    impersonate = kwargs.get('impersonate', False)
+    _continue = kwargs.get('_continue', False)
+    also_return_rows = kwargs.get('also_return_rows', False)
     is_instruct = state['mode'] == 'instruct'
     rows = [f"{state['context'].strip()}\n"]
     min_rows = 3
@@ -55,7 +55,7 @@ def generate_chat_prompt(user_input, state, **kwargs):
 
     if impersonate:
         min_rows = 2
-        rows.append(f"{prefix1.strip() if not is_instruct else prefix1}")
+        rows.append(f"{prefix1 if is_instruct else prefix1.strip()}")
     elif not _continue:
 
         # Adding the user message
@@ -64,16 +64,17 @@ def generate_chat_prompt(user_input, state, **kwargs):
             rows.append(f"{this_prefix1}{user_input}{state['end_of_turn']}\n")
 
         # Adding the Character prefix
-        rows.append(apply_extensions(f"{prefix2.strip() if not is_instruct else prefix2}", "bot_prefix"))
+        rows.append(
+            apply_extensions(
+                f"{prefix2 if is_instruct else prefix2.strip()}", "bot_prefix"
+            )
+        )
 
     while len(rows) > min_rows and len(encode(''.join(rows))[0]) >= max_length:
         rows.pop(1)
     prompt = ''.join(rows)
 
-    if also_return_rows:
-        return prompt, rows
-    else:
-        return prompt
+    return (prompt, rows) if also_return_rows else prompt
 
 
 def get_stopping_strings(state):
@@ -156,7 +157,7 @@ def chatbot_wrapper(text, state, regenerate=False, _continue=False):
         yield shared.history['visible'] + [[visible_text, shared.processing_message]]
 
     # Generate
-    for i in range(state['chat_generation_attempts']):
+    for _ in range(state['chat_generation_attempts']):
         reply = None
         for reply in generate_reply(f"{prompt}{' ' if len(cumulative_reply) > 0 else ''}{cumulative_reply}", state, eos_token=eos_token, stopping_strings=stopping_strings):
             reply = cumulative_reply + reply
@@ -210,7 +211,7 @@ def impersonate_wrapper(text, state):
     # Yield *Is typing...*
     yield shared.processing_message
 
-    for i in range(state['chat_generation_attempts']):
+    for _ in range(state['chat_generation_attempts']):
         reply = None
         for reply in generate_reply(f"{prompt}{' ' if len(cumulative_reply) > 0 else ''}{cumulative_reply}", state, eos_token=eos_token, stopping_strings=stopping_strings):
             reply = cumulative_reply + reply
@@ -249,7 +250,7 @@ def continue_wrapper(text, state):
     else:
         # Yield ' ...'
         yield chat_html_wrapper(shared.history['visible'][:-1] + [[shared.history['visible'][-1][0], shared.history['visible'][-1][1] + ' ...']], state['name1'], state['name2'], state['mode'])
-        for history in chatbot_wrapper(shared.history['internal'][-1][0], state, _continue=True):
+        for _ in chatbot_wrapper(shared.history['internal'][-1][0], state, _continue=True):
             yield chat_html_wrapper(shared.history['visible'], state['name1'], state['name2'], state['mode'])
 
 
@@ -285,7 +286,10 @@ def send_dummy_message(text, name1, name2, mode):
 
 
 def send_dummy_reply(text, name1, name2, mode):
-    if len(shared.history['visible']) > 0 and not shared.history['visible'][-1][1] == '':
+    if (
+        len(shared.history['visible']) > 0
+        and shared.history['visible'][-1][1] != ''
+    ):
         shared.history['visible'].append(['', ''])
         shared.history['internal'].append(['', ''])
     shared.history['visible'][-1][1] = text
@@ -317,17 +321,15 @@ def redraw_html(name1, name2, mode):
 
 def tokenize_dialogue(dialogue, name1, name2, mode):
     history = []
-    messages = []
     dialogue = re.sub('<START>', '', dialogue)
     dialogue = re.sub('<start>', '', dialogue)
     dialogue = re.sub('(\n|^)[Aa]non:', '\\1You:', dialogue)
     dialogue = re.sub('(\n|^)\[CHARACTER\]:', f'\\g<1>{name2}:', dialogue)
     idx = [m.start() for m in re.finditer(f"(^|\n)({re.escape(name1)}|{re.escape(name2)}):", dialogue)]
-    if len(idx) == 0:
+    if not idx:
         return history
 
-    for i in range(len(idx) - 1):
-        messages.append(dialogue[idx[i]:idx[i + 1]].strip())
+    messages = [dialogue[idx[i]:idx[i + 1]].strip() for i in range(len(idx) - 1)]
     messages.append(dialogue[idx[-1]:].strip())
 
     entry = ['', '']
@@ -336,7 +338,7 @@ def tokenize_dialogue(dialogue, name1, name2, mode):
             entry[0] = i[len(f'{name1}:'):].strip()
         elif i.startswith(f'{name2}:'):
             entry[1] = i[len(f'{name2}:'):].strip()
-            if not (len(entry[0]) == 0 and len(entry[1]) == 0):
+            if len(entry[0]) != 0 or len(entry[1]) != 0:
                 history.append(entry)
             entry = ['', '']
 
@@ -345,7 +347,7 @@ def tokenize_dialogue(dialogue, name1, name2, mode):
         for column in row:
             print("\n")
             for line in column.strip().split('\n'):
-                print("|  " + line + "\n")
+                print(f"|  {line}" + "\n")
             print("|\n")
         print("------------------------------")
 
@@ -356,14 +358,14 @@ def save_history(mode, timestamp=False):
     # Instruct mode histories should not be saved as if
     # Alpaca or Vicuna were characters
     if mode == 'instruct':
-        if not timestamp:
-            return
-        fname = f"Instruct_{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
-    else:
         if timestamp:
-            fname = f"{shared.character}_{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
+            fname = f"Instruct_{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
         else:
-            fname = f"{shared.character}_persistent.json"
+            return
+    elif timestamp:
+        fname = f"{shared.character}_{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
+    else:
+        fname = f"{shared.character}_persistent.json"
     if not Path('logs').exists():
         Path('logs').mkdir()
     with open(Path(f'logs/{fname}'), 'w', encoding='utf-8') as f:
@@ -426,7 +428,11 @@ def load_character(character, name1, name2, mode):
         Path("cache/pfp_character.png").unlink()
 
     if character != 'None':
-        folder = 'characters' if not mode == 'instruct' else 'characters/instruction-following'
+        folder = (
+            'characters'
+            if mode != 'instruct'
+            else 'characters/instruction-following'
+        )
         picture = generate_pfp_cache(character)
         for extension in ["yml", "yaml", "json"]:
             filepath = Path(f'{folder}/{character}.{extension}')

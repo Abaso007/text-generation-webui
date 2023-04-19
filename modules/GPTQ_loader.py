@@ -94,18 +94,13 @@ def _load_quant(model, checkpoint, wbits, groupsize=-1, faster_kernel=False, exc
 # Used to locate the .pt/.safetensors quantized file
 def find_quantized_model_file(model_name):
     path_to_model = Path(f'{shared.args.model_dir}/{model_name}')
-    pt_path = None
     priority_name_list = [
         Path(f'{shared.args.model_dir}/{model_name}{hyphen}{shared.args.wbits}bit{group}{ext}')
         for group in ([f'-{shared.args.groupsize}g', ''] if shared.args.groupsize > 0 else [''])
         for ext in ['.safetensors', '.pt']
         for hyphen in ['-', f'/{model_name}-', '/']
     ]
-    for path in priority_name_list:
-        if path.exists():
-            pt_path = path
-            break
-
+    pt_path = next((path for path in priority_name_list if path.exists()), None)
     # If the model hasn't been found with a well-behaved name, pick the last .pt
     # or the last .safetensors found in its folder as a last resort
     if not pt_path:
@@ -113,7 +108,7 @@ def find_quantized_model_file(model_name):
         found_safetensors = list(path_to_model.glob("*.safetensors"))
         pt_path = None
 
-        if len(found_pts) > 0:
+        if found_pts:
             if len(found_pts) > 1:
                 print('Warning: more than one .pt model has been found. The last one will be selected. It could be wrong.')
             pt_path = found_pts[-1]
@@ -176,9 +171,12 @@ def load_quantized(model_name):
             if shared.args.gpu_memory:
                 memory_map = list(map(lambda x: x.strip(), shared.args.gpu_memory))
                 max_cpu_memory = shared.args.cpu_memory.strip() if shared.args.cpu_memory is not None else '99GiB'
-                max_memory = {}
-                for i in range(len(memory_map)):
-                    max_memory[i] = f'{memory_map[i]}GiB' if not re.match('.*ib$', memory_map[i].lower()) else memory_map[i]
+                max_memory = {
+                    i: memory_map[i]
+                    if re.match('.*ib$', memory_map[i].lower())
+                    else f'{memory_map[i]}GiB'
+                    for i in range(len(memory_map))
+                }
                 max_memory['cpu'] = max_cpu_memory
             else:
                 max_memory = accelerate.utils.get_balanced_memory(model)
@@ -188,7 +186,6 @@ def load_quantized(model_name):
             # https://huggingface.co/docs/accelerate/package_reference/big_modeling#accelerate.dispatch_model
             model = accelerate.dispatch_model(model, device_map=device_map, offload_buffers=True)
 
-        # No offload
         elif not shared.args.cpu:
             model = model.to(torch.device('cuda:0'))
 
